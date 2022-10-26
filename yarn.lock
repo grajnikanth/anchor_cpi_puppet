@@ -106,7 +106,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@solana/web3.js@npm:^1.36.0":
+"@solana/web3.js@npm:1.66.2, @solana/web3.js@npm:^1.36.0":
   version: 1.66.2
   resolution: "@solana/web3.js@npm:1.66.2"
   dependencies:
@@ -1779,6 +1779,7 @@ __metadata:
   resolution: "root-workspace-0b6124@workspace:."
   dependencies:
     "@project-serum/anchor": ^0.25.0
+    "@solana/web3.js": 1.66.2
     "@types/bn.js": ^5.1.0
     "@types/chai": ^4.3.0
     "@types/mocha": ^9.0.0
