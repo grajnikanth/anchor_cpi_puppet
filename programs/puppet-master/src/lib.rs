@@ -40,15 +40,22 @@ pub mod puppet_master {
 // Program<> wrapper validates that the account "Puppet" sent to the instruction
 // is a program. This wrapper checks that the address sent matches the address
 // of the "puppet" program and it also checks if the account_info.executable == true
-//      i.e checks account_info.key == expected _program
+//      i.e checks puppet_program.programId == programId when anchor created the CPI program
 //      and account_info.executable == true
 
+// authority has to sign this transaction because the puppet contract needs the 
+// signature of the authority to change data per the SetData validation struct in
+// puppet program
+
+// the cpi call will extend the signature sent to this puppet_master smart contract 
+// to the puppet smart contract
 
 #[derive(Accounts)]
 pub struct PullStrings<'info> {
     #[account(mut)]
     pub puppet_data: Account<'info, Data>,
-    pub puppet_program: Program<'info, Puppet>
+    pub puppet_program: Program<'info, Puppet>,
+    pub authority: Signer<'info>
 }
 
 // implement the set_data_ctx function as a function on the PullStrings struct
@@ -83,11 +90,17 @@ pub struct PullStrings<'info> {
 // The cpi invocation is syntax heavy in the sense that you have to follow
 // the anchor syntax for cpi invocation
 
+//  Include the authority received by puppet_master smart contract and pass it
+// on to the puppet smart contract via CPI
+
+// 
+
 impl<'info> PullStrings<'info> {
     pub fn set_data_ctx(&self) -> CpiContext<'_, '_, '_, 'info, SetData<'info>> {
         let cpi_program = self.puppet_program.to_account_info();    
         let cpi_accounts = SetData {
             puppet: self.puppet_data.to_account_info(),
+            authority: self.authority.to_account_info()
         };
 
         CpiContext::new(cpi_program, cpi_accounts)
