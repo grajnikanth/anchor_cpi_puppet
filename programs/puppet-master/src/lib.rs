@@ -26,8 +26,25 @@ pub mod puppet_master {
 
 // The set_data function returns Ok(())
 
-    pub fn pull_strings(ctx: Context<PullStrings>, data: u64) -> Result<()> {
-        puppet::cpi::set_data(ctx.accounts.set_data_ctx(), data)
+// added bump to simlate the PDA signature by this program when making call to 
+// the puppet program. bump will be used to create the signature by this program
+// bump will be pre-generate in client program. The other seed will be empty [] and
+// only the bump seed with this programID will be used to get the hash of the
+// authority account address.
+
+// with_signer(seeds) function will add the signature fro the authority account 
+// we are taking the CPIContext returned by the set_data_ctx() function and
+// adding the signature here.
+// There are two fields in the accounts here puppet and authority. It appears
+// that anchor can figure out which of these accounts we want to sign and 
+// anchor knows to pick the authority in this case maybe because the 
+// puppet program says "authority" is the signer in the SetData validtaion
+// struct? Not  sure how anchor knows which account it should sign among the two
+
+
+    pub fn pull_strings(ctx: Context<PullStrings>, bump: u8, data: u64) -> Result<()> {
+        let bump = &[bump][..];
+        puppet::cpi::set_data(ctx.accounts.set_data_ctx().with_signer(&[&[bump][..]]), data)
     }
 }
 
@@ -43,19 +60,25 @@ pub mod puppet_master {
 //      i.e checks puppet_program.programId == programId when anchor created the CPI program
 //      and account_info.executable == true
 
-// authority has to sign this transaction because the puppet contract needs the 
-// signature of the authority to change data per the SetData validation struct in
-// puppet program
+// authority will be set as an unchecked account because the client will not send
+// the signature when invoking this instruction. The authority address will be 
+// still in the accounts list sent by client but it will not signed in the client.
+// The signature for authority will be provided by this program using the program
+// signature as the authority will be a PDA.
 
-// the cpi call will extend the signature sent to this puppet_master smart contract 
-// to the puppet smart contract
+// UncheckedAccount<> wrapper ensures that anchor will not do signature validation
+// when the client sends the account to this program
+
+// make sure to add teh comment "/// CHECK: ..." in the struct below above the 
+// authority field, without this anchor will give an error when compiling
 
 #[derive(Accounts)]
 pub struct PullStrings<'info> {
     #[account(mut)]
     pub puppet_data: Account<'info, Data>,
     pub puppet_program: Program<'info, Puppet>,
-    pub authority: Signer<'info>
+    /// CHECK: only used as a signing PDA
+    pub authority: UncheckedAccount<'info>
 }
 
 // implement the set_data_ctx function as a function on the PullStrings struct
@@ -90,10 +113,15 @@ pub struct PullStrings<'info> {
 // The cpi invocation is syntax heavy in the sense that you have to follow
 // the anchor syntax for cpi invocation
 
-//  Include the authority received by puppet_master smart contract and pass it
-// on to the puppet smart contract via CPI
+// Note that in the cpi_accounts the puppet field does not have to sign this transaction
+// to the puppet program. This puppet field is needed only to ensure that the
+// puppet program knows the address of the account we want to edit.
 
-// 
+// The puppet program does expect the authority to sign this transaction per
+// the logic in the puppet program.
+
+// See notes above the pullstrings function on how anchor determines which account to
+// sign
 
 impl<'info> PullStrings<'info> {
     pub fn set_data_ctx(&self) -> CpiContext<'_, '_, '_, 'info, SetData<'info>> {
